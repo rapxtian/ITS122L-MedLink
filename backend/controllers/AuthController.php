@@ -87,9 +87,6 @@ class AuthController {
                 trim($data['emergency_contact_number'])
             ]);
 
-            // Log activity
-            $this->logActivity($parentId, 'User registered', "New patient account created: {$data['full_name']}", 'user', $parentId);
-
             $this->db->commit();
 
             // Generate token
@@ -100,16 +97,26 @@ class AuthController {
                 'full_name' => $data['full_name']
             ]);
 
-            // Create welcome notification
-            $stmt = $this->db->prepare(
-                'INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)'
-            );
-            $stmt->execute([
-                $parentId,
-                'Welcome to MedLink!',
-                'Your account has been created successfully. You can now book appointments for your child.',
-                'info'
-            ]);
+            // Optional post-registration side effects should not fail account creation.
+            try {
+                $this->logActivity($parentId, 'User registered', "New patient account created: {$data['full_name']}", 'user', $parentId);
+            } catch (Throwable $e) {
+                error_log('Registration activity log failed: ' . $e->getMessage());
+            }
+
+            try {
+                $stmt = $this->db->prepare(
+                    'INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $parentId,
+                    'Welcome to MedLink!',
+                    'Your account has been created successfully. You can now book appointments for your child.',
+                    'info'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Registration notification failed: ' . $e->getMessage());
+            }
 
             Response::success([
                 'token' => $token,
@@ -121,8 +128,9 @@ class AuthController {
                 ]
             ], 'Registration successful', 201);
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $this->db->rollBack();
+            error_log('Registration failed: ' . $e->getMessage());
             Response::error('Registration failed', 500);
         }
     }

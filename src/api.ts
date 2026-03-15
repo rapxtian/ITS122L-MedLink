@@ -1,4 +1,4 @@
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost/backend';
+const API_BASE = (import.meta as any).env?.VITE_API_URL || '/backend';
 
 function getToken(): string | null {
   return localStorage.getItem('token');

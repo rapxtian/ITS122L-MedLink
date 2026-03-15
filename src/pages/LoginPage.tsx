@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, FormEvent } from 'react';
 import {
   Eye,
   EyeOff,
@@ -22,6 +22,11 @@ export function LoginPage({ navigate, onLoginSuccess, flow }: Props) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await handleLogin();
+  };
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Please fill in all fields.'); return; }
@@ -97,38 +102,42 @@ export function LoginPage({ navigate, onLoginSuccess, flow }: Props) {
             </div>
           )}
 
-          {/* Form */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Password</label>
-              <div className="relative">
-                <input type={showPass ? 'text' : 'password'} value={password}
-                  onChange={(e) => setPassword(e.target.value)} placeholder="********"
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition pr-10" />
-                <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-200">
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+          <form onSubmit={handleSubmit}>
+            {/* Form */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Email Address</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Password</label>
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} value={password}
+                    onChange={(e) => setPassword(e.target.value)} placeholder="********"
+                    autoComplete="current-password"
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition pr-10" />
+                  <button type="button" onClick={() => setShowPass(!showPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-slate-200">
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end mt-2 mb-5">
-            <button className="text-xs text-blue-600 hover:underline">Forgot password?</button>
-          </div>
+            <div className="flex justify-end mt-2 mb-5">
+              <button type="button" className="text-xs text-blue-600 hover:underline">Forgot password?</button>
+            </div>
 
-          <button onClick={handleLogin} disabled={loading}
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-            {loading ? (
-              <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing in...</>
-            ) : 'Sign In'}
-          </button>
+            <button type="submit" disabled={loading}
+              className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              {loading ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing in...</>
+              ) : 'Sign In'}
+            </button>
+          </form>
 
           <div className="mt-5 text-center text-sm text-slate-500 dark:text-slate-400">
             {flow === 'patient' ? (
