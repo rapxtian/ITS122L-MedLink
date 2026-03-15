@@ -27,6 +27,7 @@ export function ProfileSettings({ navigate }: ProfileSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Profile form
   const [fullName, setFullName] = useState('');
@@ -64,6 +65,30 @@ export function ProfileSettings({ navigate }: ProfileSettingsProps) {
   const showMsg = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 3000);
+  };
+
+  const profilePhotoSrc = profile?.profile_photo
+    ? `/backend/uploads/${profile.profile_photo}`
+    : null;
+
+  const handleProfilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingPhoto(true);
+    try {
+      await api.patient.uploadProfilePhoto(formData);
+      showMsg('success', 'Profile photo uploaded successfully');
+      await loadProfile();
+    } catch (err: any) {
+      showMsg('error', err.message || 'Failed to upload profile photo');
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = '';
+    }
   };
 
   // ===== Profile Update =====
@@ -184,6 +209,23 @@ export function ProfileSettings({ navigate }: ProfileSettingsProps) {
         </div>
 
         <form onSubmit={handleProfileUpdate} className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex items-center justify-center">
+              {profilePhotoSrc ? (
+                <img src={profilePhotoSrc} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User size={24} className="text-slate-400" />
+              )}
+            </div>
+            <div>
+              <label className="inline-flex items-center px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                {uploadingPhoto ? 'Uploading...' : 'Upload Profile Photo'}
+                <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={handleProfilePhotoUpload} disabled={uploadingPhoto} />
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">JPG or PNG, max 5MB</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

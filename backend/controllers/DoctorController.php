@@ -43,6 +43,15 @@ class DoctorController {
         $stmt->execute([$user['user_id'], $today]);
         $upcomingCount = (int)$stmt->fetchColumn();
 
+        // Pending lab reviews (appointments completed without a medical record yet)
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM appointments a
+             WHERE a.doctor_id = ? AND a.status IN (\'Upcoming\', \'In Progress\')
+             AND NOT EXISTS (SELECT 1 FROM lab_results lr WHERE lr.ordered_by = a.doctor_id AND lr.child_id = a.child_id)'
+        );
+        $stmt->execute([$user['user_id']]);
+        $pendingLabs = (int)$stmt->fetchColumn();
+
         // Today's schedule
         $stmt = $this->db->prepare(
             'SELECT a.*, c.full_name AS child_name, c.date_of_birth AS child_dob,
@@ -74,6 +83,7 @@ class DoctorController {
             'total_patients' => $totalPatients,
             'completed_this_month' => $completedThisMonth,
             'upcoming_count' => $upcomingCount,
+            'pending_labs' => $pendingLabs,
             'today_schedule' => $todaySchedule,
             'recent_patients' => $recentPatients
         ]);
@@ -122,11 +132,11 @@ class DoctorController {
         }
 
         $stmt = $this->db->prepare(
-            'INSERT INTO doctor_schedules (doctor_id, day_of_week, time_slot, status) VALUES (?, ?, ?, "available")'
+            'INSERT INTO doctor_schedules (doctor_id, day_of_week, time_slot, status) VALUES (?, ?, ?, \'available\') RETURNING id'
         );
         $stmt->execute([$user['user_id'], $data['day_of_week'], $data['time_slot']]);
 
-        Response::success(['id' => (int)$this->db->lastInsertId()], 'Schedule slot added', 201);
+        Response::success(['id' => (int)$stmt->fetchColumn()], 'Schedule slot added', 201);
     }
 
     public function updateSchedule(): void {
@@ -234,8 +244,20 @@ class DoctorController {
         $params = [];
 
         if (isset($data['status'])) {
+            $statusMap = [
+                'upcoming' => 'Upcoming',
+                'confirmed' => 'Upcoming',
+                'pending' => 'Upcoming',
+                'in progress' => 'In Progress',
+                'in_progress' => 'In Progress',
+                'completed' => 'Completed',
+                'cancelled' => 'Cancelled',
+            ];
+            $normalized = strtolower(trim((string)$data['status']));
+            $statusValue = $statusMap[$normalized] ?? $data['status'];
             $fields[] = 'status = ?';
-            $params[] = $data['status'];
+            $params[] = $statusValue;
+            $data['status'] = $statusValue;
         }
         if (isset($data['notes'])) {
             $fields[] = 'notes = ?';
@@ -310,7 +332,7 @@ class DoctorController {
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
-                'INSERT INTO medical_records (child_id, doctor_id, appointment_id, diagnosis, treatment, notes, record_date) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO medical_records (child_id, doctor_id, appointment_id, diagnosis, treatment, notes, record_date) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
             );
             $stmt->execute([
                 (int)$data['child_id'],
@@ -321,7 +343,7 @@ class DoctorController {
                 trim($data['notes'] ?? ''),
                 $data['record_date'] ?? date('Y-m-d')
             ]);
-            $recordId = (int)$this->db->lastInsertId();
+            $recordId = (int)$stmt->fetchColumn();
 
             // Add prescriptions if provided
             if (isset($data['prescriptions']) && is_array($data['prescriptions'])) {
@@ -416,6 +438,14 @@ class DoctorController {
     // ===== PATIENT HISTORY =====
     public function getPatientHistory(int $childId): void {
         $user = Auth::requireRole('doctor');
+
+        $accessStmt = $this->db->prepare(
+            'SELECT 1 FROM appointments WHERE doctor_id = ? AND child_id = ? LIMIT 1'
+        );
+        $accessStmt->execute([$user['user_id'], (int)$childId]);
+        if (!$accessStmt->fetchColumn()) {
+            Response::error('Forbidden', 403);
+        }
 
         // Get child info
         $stmt = $this->db->prepare(
@@ -569,7 +599,7 @@ class DoctorController {
         $resultDate = $_POST['result_date'] ?? date('Y-m-d');
 
         $stmt = $this->db->prepare(
-            'INSERT INTO lab_results (child_id, file_name, file_path, file_type, ordered_by, result_date) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO lab_results (child_id, file_name, file_path, file_type, ordered_by, result_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
         );
         $stmt->execute([
             (int)$childId,
@@ -579,7 +609,7 @@ class DoctorController {
             $user['user_id'],
             $resultDate
         ]);
-        $labResultId = (int)$this->db->lastInsertId();
+        $labResultId = (int)$stmt->fetchColumn();
 
         // Notify parent
         $stmt = $this->db->prepare(

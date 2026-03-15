@@ -200,6 +200,9 @@ switch ($resource) {
                 if ($method === 'GET') $controller->getProfile();
                 elseif ($method === 'PUT') $controller->updateProfile();
                 break;
+            case 'profile-photo':
+                if ($method === 'POST') $controller->uploadProfilePhoto();
+                break;
             case 'emergency-contacts':
                 if ($method === 'GET') $controller->getEmergencyContacts();
                 elseif ($method === 'POST') $controller->addEmergencyContact();

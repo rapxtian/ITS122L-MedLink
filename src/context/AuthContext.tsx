@@ -4,7 +4,7 @@ import { api } from '../api';
 export type Role = 'patient' | 'doctor' | 'admin';
 
 interface User {
-  user_id: number;
+  id: number;
   email: string;
   role: Role;
   full_name: string;
@@ -40,11 +40,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const normalizeUser = useCallback((raw: any): User => ({
+    ...raw,
+    id: Number(raw?.id ?? raw?.user_id),
+  }), []);
+
   useEffect(() => {
     if (token) {
       api.auth.me()
         .then((res) => {
-          setUser(res.data);
+          setUser(normalizeUser(res.data));
         })
         .catch(() => {
           localStorage.removeItem('token');
@@ -53,15 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         .finally(() => setLoading(false));
     }
-  }, []);
+  }, [token, normalizeUser]);
 
   const login = useCallback(async (email: string, password: string, role?: string) => {
     const res = await api.auth.login(email, password, role);
     const { token: newToken, user: userData } = res.data;
     localStorage.setItem('token', newToken);
     setToken(newToken);
-    setUser(userData);
-  }, []);
+    setUser(normalizeUser(userData));
+  }, [normalizeUser]);
 
   const register = useCallback(async (data: any) => {
     await api.auth.register(data);

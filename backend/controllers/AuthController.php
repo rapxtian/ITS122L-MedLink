@@ -51,7 +51,7 @@ class AuthController {
         try {
             // Create parent user
             $stmt = $this->db->prepare(
-                'INSERT INTO users (email, password, role, full_name, contact_number, address) VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO users (email, password, role, full_name, contact_number, address) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
             );
             $stmt->execute([
                 trim($data['email']),
@@ -61,7 +61,7 @@ class AuthController {
                 trim($data['contact_number']),
                 trim($data['address'])
             ]);
-            $parentId = (int)$this->db->lastInsertId();
+            $parentId = (int)$stmt->fetchColumn();
 
             // Create child record
             $stmt = $this->db->prepare(

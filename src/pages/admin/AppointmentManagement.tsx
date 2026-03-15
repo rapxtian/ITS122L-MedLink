@@ -11,12 +11,13 @@ const statusColors: Record<string, string> = {
   upcoming: 'bg-blue-100 text-blue-700 dark:text-blue-300',
   pending: 'bg-yellow-100 text-yellow-700',
   confirmed: 'bg-blue-100 text-blue-700 dark:text-blue-300',
-  in_progress: 'bg-yellow-100 text-yellow-700',
+  'in progress': 'bg-orange-100 text-orange-700',
+  in_progress: 'bg-orange-100 text-orange-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
 
-const filterTabs = ['All', 'pending', 'confirmed', 'completed', 'cancelled'];
+const filterTabs = ['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'];
 
 export function AppointmentManagement({ navigate }: Props) {
   const [search, setSearch] = useState('');
@@ -25,6 +26,10 @@ export function AppointmentManagement({ navigate }: Props) {
   const [loading, setLoading] = useState(true);
   const [viewAppt, setViewAppt] = useState<any | null>(null);
   const [updating, setUpdating] = useState<number | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editAppt, setEditAppt] = useState<any | null>(null);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [editForm, setEditForm] = useState({ appointment_date: '', appointment_time: '', doctor_id: '', status: '', notes: '', cancellation_reason: '' });
 
   const fetchAppointments = useCallback(() => {
     setLoading(true);
@@ -39,6 +44,10 @@ export function AppointmentManagement({ navigate }: Props) {
     return () => clearTimeout(t);
   }, [fetchAppointments]);
 
+  useEffect(() => {
+    api.admin.getDoctors().then((res) => setDoctors(res.data || [])).catch(() => {});
+  }, []);
+
   const handleStatusChange = async (id: number, status: string) => {
     setUpdating(id);
     try {
@@ -46,6 +55,41 @@ export function AppointmentManagement({ navigate }: Props) {
       fetchAppointments();
       if (viewAppt && (viewAppt.id === id || viewAppt.appointment_id === id)) setViewAppt(null);
     } catch {} finally { setUpdating(null); }
+  };
+
+  const openEdit = (a: any) => {
+    setEditAppt(a);
+    setEditForm({
+      appointment_date: a.appointment_date || '',
+      appointment_time: (a.appointment_time || '').slice(0, 5),
+      doctor_id: String(a.doctor_id || ''),
+      status: a.status || '',
+      notes: a.notes || '',
+      cancellation_reason: a.cancellation_reason || '',
+    });
+    setShowEdit(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editAppt) return;
+    const id = editAppt.id || editAppt.appointment_id;
+    setUpdating(id);
+    try {
+      await api.admin.updateAppointment(id, {
+        appointment_date: editForm.appointment_date,
+        appointment_time: `${editForm.appointment_time}:00`,
+        doctor_id: Number(editForm.doctor_id),
+        status: editForm.status,
+        notes: editForm.notes,
+        cancellation_reason: editForm.cancellation_reason,
+      });
+      setShowEdit(false);
+      setEditAppt(null);
+      fetchAppointments();
+    } catch {
+    } finally {
+      setUpdating(null);
+    }
   };
 
   return (
@@ -111,6 +155,9 @@ export function AppointmentManagement({ navigate }: Props) {
                           <button onClick={() => setViewAppt(a)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                             <Eye size={13} /> View
                           </button>
+                          <button onClick={() => openEdit(a)} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
+                            <CheckCircle size={13} /> Edit
+                          </button>
                           {(status === 'pending' || status === 'upcoming') && (
                             <>
                               <button disabled={updating === id} onClick={() => handleStatusChange(id, 'confirmed')}
@@ -168,6 +215,44 @@ export function AppointmentManagement({ navigate }: Props) {
             )}
           </div>
         )}
+      </Modal>
+
+      <Modal isOpen={showEdit} onClose={() => setShowEdit(false)} title="Edit Appointment" size="sm">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-slate-500">Date</label>
+            <input type="date" value={editForm.appointment_date} onChange={(e) => setEditForm({ ...editForm, appointment_date: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Time</label>
+            <input type="time" value={editForm.appointment_time} onChange={(e) => setEditForm({ ...editForm, appointment_time: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Doctor</label>
+            <select value={editForm.doctor_id} onChange={(e) => setEditForm({ ...editForm, doctor_id: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="">-- Select doctor --</option>
+              {doctors.map((d) => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Status</label>
+            <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              {['Upcoming', 'In Progress', 'Completed', 'Cancelled'].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <textarea placeholder="Notes" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+            className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" rows={2} />
+          <textarea placeholder="Cancellation reason" value={editForm.cancellation_reason} onChange={(e) => setEditForm({ ...editForm, cancellation_reason: e.target.value })}
+            className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" rows={2} />
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowEdit(false)} className="flex-1 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl text-sm">Cancel</button>
+            <button onClick={handleEditSave} disabled={!!updating} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50">Save</button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

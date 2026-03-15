@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function LoginPage({ navigate, onLoginSuccess, flow }: Props) {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -34,6 +34,22 @@ export function LoginPage({ navigate, onLoginSuccess, flow }: Props) {
     setError('');
     try {
       await login(email, password);
+      // Validate that the logged-in role matches this portal
+      const stored = localStorage.getItem('token');
+      if (stored) {
+        const payload = JSON.parse(atob(stored.split('.')[1]));
+        const role: string = payload.role;
+        if (flow === 'patient' && role !== 'patient') {
+          logout();
+          setError('This portal is for patients only. Please use the Doctor & Admin portal.');
+          return;
+        }
+        if (flow === 'doctor-admin' && role === 'patient') {
+          logout();
+          setError('Patients must log in through the Patient portal.');
+          return;
+        }
+      }
       onLoginSuccess();
     } catch (err: any) {
       setError(err?.message || 'Invalid email or password.');

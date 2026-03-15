@@ -118,14 +118,14 @@ export function PatientHistory({ navigate }: Props) {
                 {selected.age ? `Age ${selected.age}` : ''}{selected.last_visit ? ` - Last visit: ${selected.last_visit}` : ''}
               </div>
               <div className="flex gap-2 mt-1">
-                {selected.allergies && (
+                {(selected.condition || selected.known_allergies) && (
                   <span className="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">
-                    Allergy: {selected.allergies}
+                    Allergy: {selected.condition || selected.known_allergies}
                   </span>
                 )}
-                {selected.condition && (
+                {(selected.medical_history || selected.condition) && (
                   <span className="bg-blue-100 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full">
-                    {selected.condition}
+                    {selected.medical_history || selected.condition}
                   </span>
                 )}
               </div>
@@ -188,8 +188,8 @@ export function PatientHistory({ navigate }: Props) {
                 <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl">
                     <Pill size={16} className="text-purple-500 flex-shrink-0" />
                     <div>
-                      <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.medication} {p.dosage}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">{p.frequency} - {p.prescribed_date || p.date}</div>
+                      <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.medication_name || p.medication} {p.dosage}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{p.frequency} - {p.issued_date || p.prescribed_date || p.date}</div>
                     </div>
                   </div>
                 )}
@@ -204,8 +204,8 @@ export function PatientHistory({ navigate }: Props) {
                     <div className="flex items-center gap-2">
                       <FileText size={15} className="text-blue-500" />
                       <div>
-                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{l.test_name || l.name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{l.test_date || l.date}</div>
+                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{l.file_name || l.test_name || l.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{l.result_date || l.test_date || l.date}</div>
                       </div>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${l.result === 'Normal' || l.status === 'normal' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>

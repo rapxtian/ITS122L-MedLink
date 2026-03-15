@@ -43,6 +43,12 @@ function AppContent() {
     setCurrentPage('landing');
   };
 
+  const roleAllowedPages: Record<Role, string[]> = {
+    patient: ['patient-dashboard', 'book-appointment', 'appointment-history', 'medical-records', 'profile-settings'],
+    doctor: ['doctor-dashboard', 'manage-appointments', 'manage-medical-records', 'patient-history', 'schedule-management'],
+    admin: ['admin-dashboard', 'patient-management', 'inventory-management', 'report-generation', 'appointment-management'],
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -52,6 +58,11 @@ function AppContent() {
   }
 
   if (!isLoggedIn) {
+    if (!['landing', 'patient-login', 'doctor-admin-login', 'register'].includes(currentPage)) {
+      setCurrentPage('patient-login');
+      return null;
+    }
+
     const renderPublicPage = () => {
       if (currentPage === 'patient-login') {
         return <LoginPage navigate={navigate} onLoginSuccess={handleLoginSuccess} flow="patient" />;
@@ -88,6 +99,13 @@ function AppContent() {
   }
 
   const currentRole: Role = user!.role;
+
+  if (!roleAllowedPages[currentRole].includes(currentPage)) {
+    if (currentRole === 'patient') setCurrentPage('patient-dashboard');
+    else if (currentRole === 'doctor') setCurrentPage('doctor-dashboard');
+    else setCurrentPage('admin-dashboard');
+    return null;
+  }
 
   const pageTitle: Record<string, string> = {
     'patient-dashboard': 'Patient Dashboard',

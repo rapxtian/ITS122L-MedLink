@@ -46,7 +46,7 @@ export function AdminDashboard({ navigate }: Props) {
   useEffect(() => {
     Promise.all([
       api.admin.dashboard().then((res) => {
-        setStats(res.data?.stats || {});
+        setStats(res.data || {});
         setRecentAppointments(res.data?.recent_appointments || res.data?.recentAppointments || []);
       }),
       api.admin.getActivityLog().then((res) => setRecentActivity(res.data || [])).catch(() => {}),
@@ -71,10 +71,10 @@ export function AdminDashboard({ navigate }: Props) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Patients" value={stats.total_patients ?? '0'} subtitle={`+${stats.new_patients_month ?? 0} this month`} icon={Users} color="blue" />
+        <StatsCard title="Total Patients" value={stats.total_patients ?? '0'} subtitle="Registered children" icon={Users} color="blue" />
         <StatsCard title="Total Doctors" value={stats.total_doctors ?? '0'} subtitle="All active" icon={UserCheck} color="green" />
-        <StatsCard title="Today's Appointments" value={stats.today_appointments ?? '0'} subtitle={`${stats.completed_today ?? 0} completed`} icon={Calendar} color="orange" />
-        <StatsCard title="Low Stock Alerts" value={stats.low_stock ?? '0'} subtitle="Needs attention" icon={AlertTriangle} color="red" />
+        <StatsCard title="Today's Appointments" value={stats.today_appointments ?? '0'} subtitle="Clinic-wide" icon={Calendar} color="orange" />
+        <StatsCard title="Low Stock Alerts" value={stats.low_stock_alerts ?? '0'} subtitle="Needs attention" icon={AlertTriangle} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -145,9 +145,9 @@ export function AdminDashboard({ navigate }: Props) {
               </div>
               <div className="flex-1">
                 <span className="text-sm text-slate-800 dark:text-slate-100">{a.action}</span>
-                {a.user && <><span className="text-sm text-slate-500 dark:text-slate-400"> by </span><span className="text-sm font-medium text-slate-700 dark:text-slate-300">{a.user}</span></>}
+                {a.user_name && <><span className="text-sm text-slate-500 dark:text-slate-400"> by </span><span className="text-sm font-medium text-slate-700 dark:text-slate-300">{a.user_name}</span></>}
               </div>
-              <span className="text-xs text-slate-400 dark:text-slate-500">{a.time || a.created_at}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">{a.created_at}</span>
             </div>
           )}
         </div>

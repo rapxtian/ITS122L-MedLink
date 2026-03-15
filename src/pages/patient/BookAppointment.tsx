@@ -19,7 +19,15 @@ export function BookAppointment({ navigate }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.patient.getChildren().then((res) => setChildren(res.data || [])).catch(() => {});
+    api.patient.getChildren().then((res) => {
+      const loadedChildren = res.data || [];
+      setChildren(loadedChildren);
+      if (!loadedChildren.length) {
+        setError('No child profile found. Add a child in Profile Settings first.');
+      }
+    }).catch(() => {
+      setError('Unable to load child profiles. Please refresh and try again.');
+    });
     api.public.getDoctors().then((res) => setDoctors(res.data || [])).catch(() => {
       setError('Unable to load doctor list. Please try again shortly.');
     });

@@ -250,7 +250,7 @@ CREATE INDEX IF NOT EXISTS idx_doctor_schedules_doctor_id ON doctor_schedules(do
 
 -- =============================================
 -- SEED: Default Admin Account
--- Password: admin123 (bcrypt hash)
+-- Password: password (bcrypt hash)
 -- =============================================
 INSERT INTO users (email, password, role, full_name, contact_number, address)
 VALUES ('admin@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'System Administrator', '(02) 8123-4567', '123 Clinic Street, City')
@@ -258,7 +258,7 @@ ON CONFLICT (email) DO NOTHING;
 
 -- =============================================
 -- SEED: Sample Doctors
--- Password: admin123
+-- Password: password
 -- =============================================
 INSERT INTO users (email, password, role, full_name, contact_number, specialization)
 VALUES

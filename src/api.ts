@@ -33,6 +33,30 @@ async function uploadRequest(path: string, formData: FormData): Promise<any> {
   return data;
 }
 
+async function downloadRequest(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let message = 'Download failed';
+    try {
+      const data = await res.json();
+      message = data.message || data.error || message;
+    } catch {
+      // Ignore JSON parsing errors for non-JSON download responses.
+    }
+    throw new Error(message);
+  }
+
+  return res.blob();
+}
+
 // ===== AUTH =====
 export const api = {
   auth: {
@@ -62,6 +86,8 @@ export const api = {
     },
     getLabResults: (childId?: number) =>
       request(`/api/patient/lab-results${childId ? `?child_id=${childId}` : ''}`),
+    downloadLabResult: (labResultId: number) =>
+      downloadRequest(`/api/patient/lab-results/download/${labResultId}`),
     getNotifications: () => request('/api/patient/notifications'),
     markNotificationRead: (id: number) =>
       request(`/api/patient/notifications/read/${id}`, { method: 'PUT' }),
@@ -70,6 +96,8 @@ export const api = {
     getProfile: () => request('/api/patient/profile'),
     updateProfile: (data: any) =>
       request('/api/patient/profile', { method: 'PUT', body: JSON.stringify(data) }),
+    uploadProfilePhoto: (formData: FormData) =>
+      uploadRequest('/api/patient/profile-photo', formData),
     getEmergencyContacts: () => request('/api/patient/emergency-contacts'),
     addEmergencyContact: (data: any) =>
       request('/api/patient/emergency-contacts', { method: 'POST', body: JSON.stringify(data) }),
@@ -129,6 +157,10 @@ export const api = {
       return request(`/api/admin/patients${qs}`);
     },
     getPatient: (id: number) => request(`/api/admin/patients/${id}`),
+    createPatient: (data: any) =>
+      request('/api/admin/patients', { method: 'POST', body: JSON.stringify(data) }),
+    updatePatient: (id: number, data: any) =>
+      request(`/api/admin/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deletePatient: (id: number) =>
       request(`/api/admin/patients/${id}`, { method: 'DELETE' }),
     getAppointments: (params?: { status?: string; search?: string }) => {

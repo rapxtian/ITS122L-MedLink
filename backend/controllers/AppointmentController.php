@@ -52,7 +52,7 @@ class AppointmentController {
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
-                'INSERT INTO appointments (child_id, parent_id, doctor_id, appointment_date, appointment_time, reason, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO appointments (child_id, parent_id, doctor_id, appointment_date, appointment_time, reason, status) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
             );
             $stmt->execute([
                 (int)$data['child_id'],
@@ -63,7 +63,7 @@ class AppointmentController {
                 trim($data['reason'] ?? ''),
                 'Upcoming'
             ]);
-            $appointmentId = (int)$this->db->lastInsertId();
+            $appointmentId = (int)$stmt->fetchColumn();
 
             // Update schedule slot to booked
             $dayOfWeek = date('l', strtotime($data['appointment_date']));
@@ -382,28 +382,53 @@ class AppointmentController {
     public function getAvailableSlots(): void {
         Auth::requireAuth();
 
-        $doctorId = getQueryParam('doctor_id');
-        $date = getQueryParam('date');
+        $doctorId = (int)(getQueryParam('doctor_id') ?? 0);
+        $rawDate = trim((string)(getQueryParam('date') ?? ''));
 
-        if (!$doctorId || !$date) {
+        $dateObj = DateTime::createFromFormat('Y-m-d', $rawDate);
+        if (!$dateObj) {
+            $dateObj = DateTime::createFromFormat('m/d/Y', $rawDate);
+        }
+
+        if ($doctorId <= 0 || !$dateObj) {
             Response::error('Doctor ID and date are required');
         }
 
-        $dayOfWeek = date('l', strtotime($date));
+        $date = $dateObj->format('Y-m-d');
+        $dayOfWeek = $dateObj->format('l');
 
         // Get all available slots for the doctor on that day
         $stmt = $this->db->prepare(
-            'SELECT ds.time_slot FROM doctor_schedules ds
-             WHERE ds.doctor_id = ? AND ds.day_of_week = ? AND ds.status = \'available\'
+            "SELECT ds.time_slot, 'available' AS status FROM doctor_schedules ds
+             WHERE ds.doctor_id = ? AND ds.day_of_week = ? AND ds.status = 'available'
              AND ds.time_slot NOT IN (
                  SELECT appointment_time FROM appointments
-                 WHERE doctor_id = ? AND appointment_date = ? AND status IN (\'Upcoming\', \'In Progress\')
+                 WHERE doctor_id = ? AND appointment_date = ? AND status IN ('Upcoming', 'In Progress')
              )
-             ORDER BY ds.time_slot'
+             ORDER BY ds.time_slot"
         );
         $stmt->execute([(int)$doctorId, $dayOfWeek, (int)$doctorId, $date]);
 
-        $slots = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $slots = $stmt->fetchAll();
+
+                if (empty($slots)) {
+                        // Fallback for doctors without explicit schedule rows yet.
+                        $stmt = $this->db->prepare(
+                                "SELECT s.time_slot, 'available' AS status
+                                 FROM (VALUES
+                                     ('08:00:00'::time), ('09:00:00'::time), ('10:00:00'::time),
+                                     ('11:00:00'::time), ('12:00:00'::time), ('13:00:00'::time),
+                                     ('14:00:00'::time), ('15:00:00'::time), ('16:00:00'::time)
+                                 ) AS s(time_slot)
+                                 WHERE s.time_slot NOT IN (
+                                     SELECT appointment_time FROM appointments
+                                     WHERE doctor_id = ? AND appointment_date = ? AND status IN ('Upcoming', 'In Progress')
+                                 )
+                                 ORDER BY s.time_slot"
+                        );
+                        $stmt->execute([(int)$doctorId, $date]);
+                        $slots = $stmt->fetchAll();
+                }
 
         Response::success($slots);
     }

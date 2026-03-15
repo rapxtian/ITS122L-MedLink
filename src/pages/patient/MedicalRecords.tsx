@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Download, FileText, Pill, Clock } from 'lucide-react';
 import { api } from '../../api';
 
@@ -6,7 +6,7 @@ interface Props {
   navigate: (page: string) => void;
 }
 
-export function MedicalRecords({ navigate }: Props) {
+export function MedicalRecords({}: Props) {
   const [children, setChildren] = useState<any[]>([]);
   const [activeChild, setActiveChild] = useState('');
   const [activeTab, setActiveTab] = useState('lab');
@@ -14,6 +14,22 @@ export function MedicalRecords({ navigate }: Props) {
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDownloadLabResult = async (labResult: any) => {
+    try {
+      const blob = await api.patient.downloadLabResult(labResult.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = labResult.file_name || 'lab-result';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // Keep UX simple; table remains usable even if one download fails.
+    }
+  };
 
   useEffect(() => {
     api.patient.getChildren().then((res) => {
@@ -100,15 +116,15 @@ export function MedicalRecords({ navigate }: Props) {
                 <tr key={i} className="hover:bg-blue-50 dark:bg-blue-900/30 transition-colors">
                       <td className="px-4 py-3.5 flex items-center gap-2">
                         <FileText size={15} className="text-blue-500" />
-                        <span className="font-medium text-slate-800 dark:text-slate-100">{r.test_name || r.name}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">{r.file_name || r.test_name || r.name}</span>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{r.test_date || r.date}</td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{r.doctor_name || r.doctor}</td>
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{r.result_date || r.test_date || r.date}</td>
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{r.ordered_by_name || r.doctor_name || r.doctor}</td>
                       <td className="px-4 py-3.5">
                         <span className="bg-slate-100 text-slate-600 dark:text-slate-300 text-xs px-2 py-0.5 rounded">{r.file_type || 'PDF'}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                        <button onClick={() => handleDownloadLabResult(r)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                           <Download size={13} /> Download
                         </button>
                       </td>
@@ -135,11 +151,11 @@ export function MedicalRecords({ navigate }: Props) {
                     <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 text-sm">No prescriptions found</td></tr>
                   ) : prescriptions.map((p, i) =>
                 <tr key={i} className="hover:bg-blue-50 dark:bg-blue-900/30 transition-colors even:bg-slate-50 dark:bg-slate-900/30">
-                      <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-100">{p.medication}</td>
+                      <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-100">{p.medication_name || p.medication}</td>
                       <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.dosage}</td>
                       <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.frequency}</td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.doctor_name || p.issuedBy}</td>
-                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.prescribed_date || p.date}</td>
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.issued_by_name || p.doctor_name || p.issuedBy}</td>
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{p.issued_date || p.prescribed_date || p.date}</td>
                       <td className="px-4 py-3.5">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(p.status || '').toLowerCase() === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400'}`}>
                           {p.status}
@@ -169,7 +185,10 @@ export function MedicalRecords({ navigate }: Props) {
                     <div className="text-xs text-slate-400 dark:text-slate-500 mb-1">{h.record_date || h.date}</div>
                     <div className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{h.diagnosis}</div>
                     <div className="text-xs text-blue-600 mb-1">{h.doctor_name || h.doctor}</div>
-                    <div className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 mt-2">{h.notes}</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 mt-2">
+                      <div><span className="font-medium">Treatment:</span> {h.treatment || 'N/A'}</div>
+                      {h.notes && <div className="mt-1"><span className="font-medium">Notes:</span> {h.notes}</div>}
+                    </div>
                   </div>
                 </div>
             )}

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Eye, CheckCircle, X } from 'lucide-react';
+import { Eye, CheckCircle, X, Play } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { api } from '../../api';
 
@@ -11,7 +11,8 @@ const statusColors: Record<string, string> = {
   upcoming: 'bg-blue-100 text-blue-700 dark:text-blue-300',
   confirmed: 'bg-blue-100 text-blue-700 dark:text-blue-300',
   pending: 'bg-yellow-100 text-yellow-700',
-  in_progress: 'bg-yellow-100 text-yellow-700',
+  'in progress': 'bg-orange-100 text-orange-700',
+  in_progress: 'bg-orange-100 text-orange-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
@@ -34,8 +35,8 @@ export function ManageAppointments({ navigate }: Props) {
 
   const filtered = appointments.filter((a) =>
     tab === 'upcoming'
-      ? ['upcoming', 'confirmed', 'pending', 'in_progress'].includes(a.status?.toLowerCase())
-      : ['completed', 'cancelled'].includes(a.status?.toLowerCase())
+      ? ['upcoming', 'confirmed', 'pending', 'in progress', 'in_progress'].includes((a.status || '').toLowerCase())
+      : ['completed', 'cancelled'].includes((a.status || '').toLowerCase())
   );
 
   const handleStatusChange = async (id: number, status: string) => {
@@ -98,8 +99,11 @@ export function ManageAppointments({ navigate }: Props) {
                       <button onClick={() => setViewAppt(a)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                         <Eye size={13} /> View
                       </button>
-                      {['upcoming', 'confirmed', 'pending'].includes(a.status?.toLowerCase()) &&
-                    <>
+                      {['upcoming', 'confirmed', 'pending'].includes((a.status || '').toLowerCase()) && (
+                        <>
+                          <button onClick={() => handleStatusChange(a.id, 'in_progress')} className="flex items-center gap-1 text-xs text-orange-600 hover:underline">
+                            <Play size={13} /> Start
+                          </button>
                           <button onClick={() => handleStatusChange(a.id, 'completed')} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
                             <CheckCircle size={13} /> Complete
                           </button>
@@ -107,7 +111,17 @@ export function ManageAppointments({ navigate }: Props) {
                             <X size={13} /> Cancel
                           </button>
                         </>
-                    }
+                      )}
+                      {['in progress', 'in_progress'].includes((a.status || '').toLowerCase()) && (
+                        <>
+                          <button onClick={() => handleStatusChange(a.id, 'completed')} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
+                            <CheckCircle size={13} /> Complete
+                          </button>
+                          <button onClick={() => handleStatusChange(a.id, 'cancelled')} className="flex items-center gap-1 text-xs text-red-500 hover:underline">
+                            <X size={13} /> Cancel
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

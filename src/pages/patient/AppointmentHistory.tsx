@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, X, AlertCircle, Star } from 'lucide-react';
+import { Search, Eye, X, AlertCircle, Star, Bell } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,8 @@ interface Props {
 const statusColors: Record<string, string> = {
   upcoming: 'bg-blue-100 text-blue-700 dark:text-blue-300',
   confirmed: 'bg-blue-100 text-blue-700 dark:text-blue-300',
+  'in progress': 'bg-orange-100 text-orange-700',
+  in_progress: 'bg-orange-100 text-orange-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
   pending: 'bg-yellow-100 text-yellow-700'
@@ -34,25 +36,44 @@ export function AppointmentHistory({ navigate }: Props) {
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
   const [ratedAppointments, setRatedAppointments] = useState<Set<number>>(new Set());
+  const [reminderSent, setReminderSent] = useState(false);
+  const [reminderSending, setReminderSending] = useState(false);
 
   const fetchAppointments = async () => {
+    if (!user?.id) {
+      setAppointments([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await api.appointments.getByPatient(user!.user_id);
+      const res = await api.appointments.getByPatient(user.id);
       setAppointments(res.data || []);
     } catch { }
     setLoading(false);
   };
 
   useEffect(() => { fetchAppointments(); }, []);
-  const filtered = appointments.filter(
-    (a) =>
-    (filter === 'All' || a.status?.toLowerCase() === filter.toLowerCase()) && (
-    (a.doctor_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (a.child_name || '').toLowerCase().includes(search.toLowerCase()))
-  );
+  const normalizeStatus = (status: string | undefined) => (status || '').trim().toLowerCase();
+
+  const filtered = appointments.filter((a) => {
+    const status = normalizeStatus(a.status);
+    let matchesFilter = false;
+    if (filter === 'All') {
+      matchesFilter = true;
+    } else if (filter === 'In Progress') {
+      matchesFilter = status === 'in progress' || status === 'in_progress';
+    } else {
+      matchesFilter = status === filter.toLowerCase();
+    }
+    const matchesSearch =
+      (a.doctor_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.child_name || '').toLowerCase().includes(search.toLowerCase());
+
+    return matchesFilter && matchesSearch;
+  });
 
   const handleCancel = async () => {
-    if (!cancelAppt || !cancelReason) return;
+    if (!cancelAppt) return;
     setCancelling(true);
     try {
       await api.appointments.cancel(cancelAppt.id, cancelReason);
@@ -68,6 +89,16 @@ export function AppointmentHistory({ navigate }: Props) {
     setRatingValue(0);
     setRatingHover(0);
     setRatingComment('');
+  };
+
+  const handleSendReminders = async () => {
+    setReminderSending(true);
+    try {
+      await api.patient.checkReminders();
+      setReminderSent(true);
+      setTimeout(() => setReminderSent(false), 3000);
+    } catch { }
+    setReminderSending(false);
   };
 
   const handleRatingSubmit = async () => {
@@ -91,13 +122,23 @@ export function AppointmentHistory({ navigate }: Props) {
 
   return (
     <div className="max-w-5xl space-y-5">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-          Appointment History
-        </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          View and manage all your appointments
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+            Appointment History
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            View and manage all your appointments
+          </p>
+        </div>
+        <button
+          onClick={handleSendReminders}
+          disabled={reminderSending || reminderSent}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${reminderSent ? 'bg-green-100 text-green-700' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100'} disabled:opacity-60`}
+        >
+          <Bell size={14} />
+          {reminderSending ? 'Sending...' : reminderSent ? 'Reminders Sent!' : 'Send Reminders'}
+        </button>
       </div>
 
       {/* Filters */}
@@ -115,7 +156,7 @@ export function AppointmentHistory({ navigate }: Props) {
           
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-          {['All', 'Upcoming', 'Completed', 'Cancelled'].map((s) =>
+          {['All', 'Upcoming', 'In Progress', 'Completed', 'Cancelled'].map((s) =>
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -149,6 +190,13 @@ export function AppointmentHistory({ navigate }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-slate-400 dark:text-slate-500">
+                    No appointments found for the current search or filter.
+                  </td>
+                </tr>
+              )}
               {filtered.map((a) =>
               <tr
                 key={a.id}
@@ -264,7 +312,7 @@ export function AppointmentHistory({ navigate }: Props) {
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
-              Reason for Cancellation <span className="text-red-500">*</span>
+              Reason for Cancellation <span className="text-slate-400 text-xs">(optional)</span>
             </label>
             <textarea
               value={cancelReason}
@@ -283,7 +331,7 @@ export function AppointmentHistory({ navigate }: Props) {
             </button>
             <button
               onClick={handleCancel}
-              disabled={!cancelReason || cancelling}
+              disabled={cancelling}
               className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50">
               {cancelling ? 'Cancelling...' : 'Confirm Cancel'}
             </button>

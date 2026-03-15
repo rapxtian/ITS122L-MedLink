@@ -15,6 +15,21 @@ export function PatientManagement({ navigate }: Props) {
   const [viewDetail, setViewDetail] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    parent_name: '',
+    parent_email: '',
+    parent_contact: '',
+    parent_address: '',
+    child_name: '',
+    child_dob: '',
+    child_gender: 'Male',
+    child_allergies: '',
+    child_medical_history: '',
+  });
 
   const fetchPatients = useCallback(() => {
     setLoading(true);
@@ -47,6 +62,63 @@ export function PatientManagement({ navigate }: Props) {
     } catch {} finally { setDeleting(false); }
   };
 
+  const openAddForm = () => {
+    setEditingPatient(null);
+    setFormError(null);
+    setForm({
+      parent_name: '',
+      parent_email: '',
+      parent_contact: '',
+      parent_address: '',
+      child_name: '',
+      child_dob: '',
+      child_gender: 'Male',
+      child_allergies: '',
+      child_medical_history: '',
+    });
+    setShowFormModal(true);
+  };
+
+  const openEditForm = (p: any) => {
+    setEditingPatient(p);
+    setFormError(null);
+    setForm({
+      parent_name: p.parent_name || '',
+      parent_email: p.parent_email || '',
+      parent_contact: p.parent_contact || '',
+      parent_address: p.parent_address || '',
+      child_name: p.full_name || '',
+      child_dob: p.date_of_birth || '',
+      child_gender: p.gender || 'Male',
+      child_allergies: p.known_allergies || '',
+      child_medical_history: p.medical_history || '',
+    });
+    setShowFormModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.parent_name || !form.parent_email || !form.parent_contact || !form.child_name || !form.child_dob || !form.child_gender) {
+      setFormError('Please fill all required fields.');
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editingPatient) {
+        await api.admin.updatePatient(editingPatient.id, form);
+      } else {
+        await api.admin.createPatient(form);
+      }
+      setShowFormModal(false);
+      fetchPatients();
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to save patient record');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl space-y-5">
       <div className="flex items-center justify-between">
@@ -54,6 +126,9 @@ export function PatientManagement({ navigate }: Props) {
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Patient Management</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">View and manage all registered patients</p>
         </div>
+        <button onClick={openAddForm} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+          <Plus size={15} /> Add Patient
+        </button>
       </div>
 
       <div className="relative">
@@ -85,15 +160,18 @@ export function PatientManagement({ navigate }: Props) {
                   <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400 dark:text-slate-500">No patients found</td></tr>
                 ) : patients.map((p: any) =>
                   <tr key={p.id || p.user_id} className="hover:bg-blue-50 dark:bg-blue-900/30 transition-colors even:bg-slate-50 dark:bg-slate-900/30">
-                    <td className="px-5 py-3.5 font-medium text-slate-800 dark:text-slate-100">{p.name || p.full_name}</td>
+                    <td className="px-5 py-3.5 font-medium text-slate-800 dark:text-slate-100">{p.full_name || p.name}</td>
                     <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{p.parent || p.parent_name || '-'}</td>
-                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{p.age ? `${p.age} yrs` : '-'}</td>
-                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{p.contact || p.phone || '-'}</td>
+                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{p.date_of_birth ? `${Math.max(0, new Date().getFullYear() - new Date(p.date_of_birth).getFullYear())} yrs` : '-'}</td>
+                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{p.parent_contact || p.contact || p.phone || '-'}</td>
                     <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">{p.registered || p.created_at?.slice(0, 10) || '-'}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleView(p)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
                           <Eye size={13} /> View
+                        </button>
+                        <button onClick={() => openEditForm(p)} className="flex items-center gap-1 text-xs text-green-600 hover:underline">
+                          <Plus size={13} /> Edit
                         </button>
                         <button onClick={() => setDeleteTarget(p)} className="flex items-center gap-1 text-xs text-red-500 hover:underline">
                           <Trash2 size={13} /> Delete
@@ -154,6 +232,41 @@ export function PatientManagement({ navigate }: Props) {
             <button onClick={handleDelete} disabled={deleting}
               className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
               {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingPatient ? 'Edit Patient' : 'Add Patient'} size="md">
+        <div className="space-y-3">
+          {formError && <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input placeholder="Parent Name *" value={form.parent_name} onChange={(e) => setForm({ ...form, parent_name: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input placeholder="Parent Email *" type="email" value={form.parent_email} onChange={(e) => setForm({ ...form, parent_email: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input placeholder="Parent Contact *" value={form.parent_contact} onChange={(e) => setForm({ ...form, parent_contact: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input placeholder="Parent Address" value={form.parent_address} onChange={(e) => setForm({ ...form, parent_address: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input placeholder="Child Name *" value={form.child_name} onChange={(e) => setForm({ ...form, child_name: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <input type="date" value={form.child_dob} onChange={(e) => setForm({ ...form, child_dob: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+            <select value={form.child_gender} onChange={(e) => setForm({ ...form, child_gender: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+            <input placeholder="Allergies" value={form.child_allergies} onChange={(e) => setForm({ ...form, child_allergies: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <textarea placeholder="Medical History" value={form.child_medical_history} onChange={(e) => setForm({ ...form, child_medical_history: e.target.value })}
+            className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm" rows={3} />
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowFormModal(false)} className="flex-1 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl text-sm">Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60">
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>

@@ -17,6 +17,8 @@ export function ManageMedicalRecords({ navigate }: Props) {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [prescriptions, setPrescriptions] = useState<Array<{ medication_name: string; dosage: string; frequency: string }>>([]);
 
   // Lab upload state
   const [labFile, setLabFile] = useState<File | null>(null);
@@ -37,24 +39,41 @@ export function ManageMedicalRecords({ navigate }: Props) {
   }, []);
 
   const handleSave = async () => {
-    if (!selectedPatient || !diagnosis) return;
+    if (!selectedPatient || !diagnosis || !treatment) {
+      setFormError('Patient, diagnosis, and treatment are required.');
+      return;
+    }
+
+    const hasIncompletePrescription = prescriptions.some((rx) =>
+      (rx.medication_name || rx.dosage || rx.frequency) && (!rx.medication_name || !rx.dosage || !rx.frequency)
+    );
+    if (hasIncompletePrescription) {
+      setFormError('Complete all prescription fields or remove incomplete rows.');
+      return;
+    }
+
     setSaving(true);
+    setFormError(null);
     try {
       await api.doctor.addMedicalRecord({
         child_id: Number(selectedPatient),
         diagnosis,
         treatment,
         notes,
+        prescriptions: prescriptions.filter((rx) => rx.medication_name && rx.dosage && rx.frequency),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       setDiagnosis('');
       setTreatment('');
       setNotes('');
+      setPrescriptions([]);
       // Refresh records
       const res = await api.doctor.getMedicalRecords();
       setRecords(res.data || []);
-    } catch { }
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to save medical record');
+    }
     setSaving(false);
   };
 
@@ -111,6 +130,11 @@ export function ManageMedicalRecords({ navigate }: Props) {
           <Plus size={16} className="text-blue-600" /> Add Medical Record
         </h3>
         <div className="space-y-4">
+          {formError && (
+            <div className="px-3 py-2.5 rounded-lg text-sm bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {formError}
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Patient</label>
             <select value={selectedPatient} onChange={(e) => setSelectedPatient(e.target.value)}
@@ -139,7 +163,50 @@ export function ManageMedicalRecords({ navigate }: Props) {
               placeholder="Additional notes..."
               className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" />
           </div>
-          <button onClick={handleSave} disabled={saving || !selectedPatient || !diagnosis}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Prescriptions (optional)</label>
+              <button
+                onClick={() => setPrescriptions((prev) => [...prev, { medication_name: '', dosage: '', frequency: '' }])}
+                className="text-xs px-2.5 py-1.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600"
+              >
+                Add Prescription
+              </button>
+            </div>
+            {prescriptions.map((rx, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                  value={rx.medication_name}
+                  onChange={(e) => setPrescriptions((prev) => prev.map((p, i) => i === index ? { ...p, medication_name: e.target.value } : p))}
+                  placeholder="Medication"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+                <input
+                  value={rx.dosage}
+                  onChange={(e) => setPrescriptions((prev) => prev.map((p, i) => i === index ? { ...p, dosage: e.target.value } : p))}
+                  placeholder="Dosage"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+                <div className="flex gap-2">
+                  <input
+                    value={rx.frequency}
+                    onChange={(e) => setPrescriptions((prev) => prev.map((p, i) => i === index ? { ...p, frequency: e.target.value } : p))}
+                    placeholder="Frequency"
+                    className="flex-1 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <button
+                    onClick={() => setPrescriptions((prev) => prev.filter((_, i) => i !== index))}
+                    className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={handleSave} disabled={saving || !selectedPatient || !diagnosis || !treatment}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 ${saved ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
             <Save size={15} /> {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Record'}
           </button>

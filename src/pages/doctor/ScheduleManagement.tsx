@@ -12,26 +12,64 @@ const hours = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 P
 
 type SlotMap = Record<string, { id?: number; patient?: string; type: 'booked' | 'available' | 'blocked' }>;
 
+function toDisplayHour(time: string): string {
+  if (!time) return '';
+  const [rawHour, rawMinute] = time.split(':');
+  const hour24 = Number(rawHour);
+  const minute = rawMinute || '00';
+  const suffix = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${minute} ${suffix}`;
+}
+
+function toApiTime(hourLabel: string): string {
+  const [timePart, suffix] = hourLabel.split(' ');
+  const [hourText, minuteText] = timePart.split(':');
+  let hour = Number(hourText);
+
+  if (suffix === 'PM' && hour !== 12) hour += 12;
+  if (suffix === 'AM' && hour === 12) hour = 0;
+
+  const hourPadded = String(hour).padStart(2, '0');
+  return `${hourPadded}:${minuteText}:00`;
+}
+
 export function ScheduleManagement({ navigate }: Props) {
   const [slots, setSlots] = useState<SlotMap>({});
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newDay, setNewDay] = useState('Monday');
   const [newTime, setNewTime] = useState('9:00 AM');
+  const [addError, setAddError] = useState('');
 
   const fetchSchedule = async () => {
     try {
       const res = await api.doctor.getSchedule();
-      const data = res.data || [];
       const mapped: SlotMap = {};
-      data.forEach((s: any) => {
-        const key = `${s.day_of_week}-${s.time_slot}`;
-        mapped[key] = {
-          id: s.id,
-          patient: s.patient_name || s.child_name,
-          type: s.status === 'booked' ? 'booked' : s.status === 'blocked' ? 'blocked' : 'available',
-        };
-      });
+      const data = res.data || [];
+
+      if (Array.isArray(data)) {
+        data.forEach((s: any) => {
+          const key = `${s.day_of_week}-${toDisplayHour(s.time_slot || s.time)}`;
+          mapped[key] = {
+            id: s.id,
+            patient: s.patient_name || s.child_name,
+            type: s.status === 'booked' ? 'booked' : s.status === 'blocked' ? 'blocked' : 'available',
+          };
+        });
+      } else {
+        Object.entries(data).forEach(([day, daySlots]: [string, any]) => {
+          (daySlots || []).forEach((s: any) => {
+            const key = `${day}-${toDisplayHour(s.time_slot || s.time)}`;
+            mapped[key] = {
+              id: s.id,
+              patient: s.patient_name || s.child_name,
+              type: s.status === 'booked' ? 'booked' : s.status === 'blocked' ? 'blocked' : 'available',
+            };
+          });
+        });
+      }
+
       setSlots(mapped);
     } catch { }
     setLoading(false);
@@ -41,15 +79,18 @@ export function ScheduleManagement({ navigate }: Props) {
 
   const handleAdd = async () => {
     const key = `${newDay}-${newTime}`;
-    if (slots[key]) { setShowAdd(false); return; }
-    try {
-      await api.doctor.addSlot({ day_of_week: newDay, time_slot: newTime });
-      await fetchSchedule();
-    } catch {
-      // Fallback: add locally
-      setSlots((prev) => ({ ...prev, [key]: { type: 'available' } }));
+    setAddError('');
+    if (slots[key]) {
+      setAddError(`A slot for ${newDay} at ${newTime} already exists.`);
+      return;
     }
-    setShowAdd(false);
+    try {
+      await api.doctor.addSlot({ day_of_week: newDay, time_slot: toApiTime(newTime) });
+      await fetchSchedule();
+      setShowAdd(false);
+    } catch (err: any) {
+      setAddError(err?.message || 'Failed to add slot. It may already exist.');
+    }
   };
 
   const handleRemove = async (key: string) => {
@@ -149,24 +190,29 @@ export function ScheduleManagement({ navigate }: Props) {
         </div>
       </div>
 
-      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Time Slot" size="sm">
+      <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddError(''); }} title="Add Time Slot" size="sm">
         <div className="space-y-4">
+          {addError && (
+            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-sm">
+              {addError}
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Day</label>
-            <select value={newDay} onChange={(e) => setNewDay(e.target.value)}
+            <select value={newDay} onChange={(e) => { setNewDay(e.target.value); setAddError(''); }}
               className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
               {days.map((d) => <option key={d}>{d}</option>)}
             </select>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1.5">Time</label>
-            <select value={newTime} onChange={(e) => setNewTime(e.target.value)}
+            <select value={newTime} onChange={(e) => { setNewTime(e.target.value); setAddError(''); }}
               className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
               {hours.map((h) => <option key={h}>{h}</option>)}
             </select>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setShowAdd(false)}
+            <button onClick={() => { setShowAdd(false); setAddError(''); }}
               className="flex-1 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900/40">
               Cancel
             </button>

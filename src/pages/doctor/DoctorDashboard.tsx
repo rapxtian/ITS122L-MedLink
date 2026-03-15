@@ -44,7 +44,7 @@ export function DoctorDashboard({ navigate }: Props) {
   useEffect(() => {
     api.doctor.dashboard()
       .then((res) => {
-        setStats(res.data?.stats || {});
+        setStats(res.data || {});
         setSchedule(res.data?.today_schedule || res.data?.todaySchedule || []);
       })
       .catch(() => {})
@@ -79,8 +79,8 @@ export function DoctorDashboard({ navigate }: Props) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Today's Appointments" value={stats.today_appointments ?? '0'} subtitle={`${stats.completed_today ?? 0} completed`} icon={Calendar} color="blue" />
-        <StatsCard title="Upcoming Patients" value={stats.upcoming_patients ?? '0'} subtitle="This afternoon" icon={Users} color="green" />
+        <StatsCard title="Today's Appointments" value={stats.today_appointments ?? '0'} subtitle={`${stats.completed_this_month ?? 0} completed this month`} icon={Calendar} color="blue" />
+        <StatsCard title="Upcoming Patients" value={stats.upcoming_count ?? '0'} subtitle="Upcoming appointments" icon={Users} color="green" />
         <StatsCard title="Pending Lab Reviews" value={stats.pending_labs ?? '0'} subtitle="Awaiting review" icon={FileText} color="orange" />
         <StatsCard title="Total Patients" value={stats.total_patients ?? '0'} subtitle="Under your care" icon={Heart} color="purple" />
       </div>

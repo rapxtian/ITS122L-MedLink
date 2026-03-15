@@ -183,7 +183,7 @@ class AdminController {
             } else {
                 // Create parent user with default password
                 $stmt = $this->db->prepare(
-                    'INSERT INTO users (email, password, role, full_name, contact_number, address) VALUES (?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO users (email, password, role, full_name, contact_number, address) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
                 );
                 $stmt->execute([
                     trim($data['parent_email']),
@@ -193,12 +193,20 @@ class AdminController {
                     trim($data['parent_contact']),
                     trim($data['parent_address'] ?? '')
                 ]);
-                $parentId = (int)$this->db->lastInsertId();
+                $parentId = (int)$stmt->fetchColumn();
             }
 
             // Create child
+            $dupStmt = $this->db->prepare(
+                'SELECT id FROM children WHERE parent_id = ? AND LOWER(full_name) = LOWER(?) AND date_of_birth = ?'
+            );
+            $dupStmt->execute([$parentId, trim($data['child_name']), $data['child_dob']]);
+            if ($dupStmt->fetch()) {
+                Response::error('Duplicate patient record for the same parent and date of birth', 409);
+            }
+
             $stmt = $this->db->prepare(
-                'INSERT INTO children (parent_id, full_name, date_of_birth, gender, known_allergies, medical_history) VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO children (parent_id, full_name, date_of_birth, gender, known_allergies, medical_history) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
             );
             $stmt->execute([
                 $parentId,
@@ -208,7 +216,7 @@ class AdminController {
                 trim($data['child_allergies'] ?? ''),
                 trim($data['child_medical_history'] ?? '')
             ]);
-            $childId = (int)$this->db->lastInsertId();
+            $childId = (int)$stmt->fetchColumn();
 
             // Log activity
             $user = Auth::requireAuth();
@@ -247,6 +255,7 @@ class AdminController {
 
         $this->db->beginTransaction();
         try {
+            $changes = [];
             // Update child info
             $childFields = [];
             $childParams = [];
@@ -254,22 +263,27 @@ class AdminController {
             if (isset($data['child_name'])) {
                 $childFields[] = 'full_name = ?';
                 $childParams[] = trim($data['child_name']);
+                $changes[] = 'child_name';
             }
             if (isset($data['child_dob'])) {
                 $childFields[] = 'date_of_birth = ?';
                 $childParams[] = $data['child_dob'];
+                $changes[] = 'child_dob';
             }
             if (isset($data['child_gender'])) {
                 $childFields[] = 'gender = ?';
                 $childParams[] = $data['child_gender'];
+                $changes[] = 'child_gender';
             }
             if (isset($data['child_allergies'])) {
                 $childFields[] = 'known_allergies = ?';
                 $childParams[] = trim($data['child_allergies']);
+                $changes[] = 'child_allergies';
             }
             if (isset($data['child_medical_history'])) {
                 $childFields[] = 'medical_history = ?';
                 $childParams[] = trim($data['child_medical_history']);
+                $changes[] = 'child_medical_history';
             }
 
             if (!empty($childFields)) {
@@ -286,18 +300,22 @@ class AdminController {
             if (isset($data['parent_name'])) {
                 $parentFields[] = 'full_name = ?';
                 $parentParams[] = trim($data['parent_name']);
+                $changes[] = 'parent_name';
             }
             if (isset($data['parent_email'])) {
                 $parentFields[] = 'email = ?';
                 $parentParams[] = trim($data['parent_email']);
+                $changes[] = 'parent_email';
             }
             if (isset($data['parent_contact'])) {
                 $parentFields[] = 'contact_number = ?';
                 $parentParams[] = trim($data['parent_contact']);
+                $changes[] = 'parent_contact';
             }
             if (isset($data['parent_address'])) {
                 $parentFields[] = 'address = ?';
                 $parentParams[] = trim($data['parent_address']);
+                $changes[] = 'parent_address';
             }
 
             if (!empty($parentFields)) {
@@ -305,6 +323,20 @@ class AdminController {
                 $sql = 'UPDATE users SET ' . implode(', ', $parentFields) . ' WHERE id = ?';
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute($parentParams);
+            }
+
+            if (!empty($changes)) {
+                $user = Auth::requireAuth();
+                $logStmt = $this->db->prepare(
+                    'INSERT INTO activity_log (user_id, action, description, entity_type, entity_id) VALUES (?, ?, ?, ?, ?)'
+                );
+                $logStmt->execute([
+                    $user['user_id'],
+                    'Patient updated',
+                    'Updated fields: ' . implode(', ', $changes),
+                    'patient',
+                    (int)$id
+                ]);
             }
 
             $this->db->commit();
@@ -391,22 +423,65 @@ class AdminController {
 
         $fields = [];
         $params = [];
+        $changes = [];
+
+        $statusMap = [
+            'upcoming' => 'Upcoming',
+            'confirmed' => 'Upcoming',
+            'pending' => 'Upcoming',
+            'in progress' => 'In Progress',
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+        ];
 
         if (isset($data['status'])) {
+            $normalized = strtolower(trim((string)$data['status']));
+            $statusValue = $statusMap[$normalized] ?? $data['status'];
             $fields[] = 'status = ?';
-            $params[] = $data['status'];
+            $params[] = $statusValue;
+            $changes[] = 'status';
+            $data['status'] = $statusValue;
+        }
+        if (isset($data['appointment_date'])) {
+            $fields[] = 'appointment_date = ?';
+            $params[] = $data['appointment_date'];
+            $changes[] = 'appointment_date';
+        }
+        if (isset($data['appointment_time'])) {
+            $fields[] = 'appointment_time = ?';
+            $params[] = $data['appointment_time'];
+            $changes[] = 'appointment_time';
+        }
+        if (isset($data['doctor_id'])) {
+            $fields[] = 'doctor_id = ?';
+            $params[] = (int)$data['doctor_id'];
+            $changes[] = 'doctor_id';
         }
         if (isset($data['cancellation_reason'])) {
             $fields[] = 'cancellation_reason = ?';
             $params[] = trim($data['cancellation_reason']);
+            $changes[] = 'cancellation_reason';
         }
         if (isset($data['notes'])) {
             $fields[] = 'notes = ?';
             $params[] = trim($data['notes']);
+            $changes[] = 'notes';
         }
 
         if (empty($fields)) {
             Response::error('No fields to update');
+        }
+
+        $newDoctorId = isset($data['doctor_id']) ? (int)$data['doctor_id'] : (int)$appointment['doctor_id'];
+        $newDate = $data['appointment_date'] ?? $appointment['appointment_date'];
+        $newTime = $data['appointment_time'] ?? $appointment['appointment_time'];
+        $dupStmt = $this->db->prepare(
+            'SELECT id FROM appointments WHERE id != ? AND doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status IN (\'Upcoming\', \'In Progress\')'
+        );
+        $dupStmt->execute([(int)$id, $newDoctorId, $newDate, $newTime]);
+        if ($dupStmt->fetch()) {
+            Response::error('Doctor already has an appointment at the selected date and time', 409);
         }
 
         $params[] = (int)$id;
@@ -430,6 +505,20 @@ class AdminController {
                 );
                 $stmt->execute([(int)$appointment['doctor_id'], $dayOfWeek, $appointment['appointment_time']]);
             }
+        }
+
+        if (!empty($changes)) {
+            $user = Auth::requireAuth();
+            $logStmt = $this->db->prepare(
+                'INSERT INTO activity_log (user_id, action, description, entity_type, entity_id) VALUES (?, ?, ?, ?, ?)'
+            );
+            $logStmt->execute([
+                $user['user_id'],
+                'Appointment updated',
+                'Updated fields: ' . implode(', ', $changes),
+                'appointment',
+                (int)$id
+            ]);
         }
 
         Response::success(null, 'Appointment updated');
@@ -512,6 +601,14 @@ class AdminController {
         $quantity = (int)$data['quantity'];
         $reorderLevel = (int)$data['reorder_level'];
 
+        $dupStmt = $this->db->prepare(
+            'SELECT id FROM inventory WHERE LOWER(item_name) = LOWER(?) AND category = ? AND LOWER(supplier) = LOWER(?)'
+        );
+        $dupStmt->execute([trim($data['item_name']), $data['category'], trim($data['supplier'])]);
+        if ($dupStmt->fetch()) {
+            Response::error('Duplicate inventory item exists for the same category and supplier', 409);
+        }
+
         // Determine status
         if ($quantity <= 0) {
             $status = 'Out of Stock';
@@ -524,7 +621,7 @@ class AdminController {
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
-                'INSERT INTO inventory (item_name, category, quantity, reorder_level, supplier, status) VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO inventory (item_name, category, quantity, reorder_level, supplier, status) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
             );
             $stmt->execute([
                 trim($data['item_name']),
@@ -534,7 +631,7 @@ class AdminController {
                 trim($data['supplier']),
                 $status
             ]);
-            $itemId = (int)$this->db->lastInsertId();
+            $itemId = (int)$stmt->fetchColumn();
 
             // Log transaction
             $stmt = $this->db->prepare(
@@ -578,22 +675,27 @@ class AdminController {
 
         $fields = [];
         $params = [];
+        $changes = [];
 
         if (isset($data['item_name'])) {
             $fields[] = 'item_name = ?';
             $params[] = trim($data['item_name']);
+            $changes[] = 'item_name';
         }
         if (isset($data['category'])) {
             $fields[] = 'category = ?';
             $params[] = $data['category'];
+            $changes[] = 'category';
         }
         if (isset($data['supplier'])) {
             $fields[] = 'supplier = ?';
             $params[] = trim($data['supplier']);
+            $changes[] = 'supplier';
         }
         if (isset($data['reorder_level'])) {
             $fields[] = 'reorder_level = ?';
             $params[] = (int)$data['reorder_level'];
+            $changes[] = 'reorder_level';
         }
 
         $newQuantity = isset($data['quantity']) ? (int)$data['quantity'] : (int)$item['quantity'];
@@ -602,6 +704,7 @@ class AdminController {
         if (isset($data['quantity'])) {
             $fields[] = 'quantity = ?';
             $params[] = $newQuantity;
+            $changes[] = 'quantity';
 
             // Record transaction
             $diff = $newQuantity - (int)$item['quantity'];
@@ -625,6 +728,7 @@ class AdminController {
         }
         $fields[] = 'status = ?';
         $params[] = $status;
+        $changes[] = 'status';
 
         if (empty($fields)) {
             Response::error('No fields to update');
@@ -634,6 +738,19 @@ class AdminController {
         $sql = 'UPDATE inventory SET ' . implode(', ', $fields) . ' WHERE id = ?';
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
+
+        if (!empty($changes)) {
+            $logStmt = $this->db->prepare(
+                'INSERT INTO activity_log (user_id, action, description, entity_type, entity_id) VALUES (?, ?, ?, ?, ?)'
+            );
+            $logStmt->execute([
+                $user['user_id'],
+                'Inventory item updated',
+                'Updated fields: ' . implode(', ', $changes),
+                'inventory',
+                (int)$id
+            ]);
+        }
 
         Response::success(null, 'Inventory item updated');
     }

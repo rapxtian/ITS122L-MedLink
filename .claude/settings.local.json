@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\DoctorController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\DoctorController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\AdminController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\AdminController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\AppointmentController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\AppointmentController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\PatientController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\PatientController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\index.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\index.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\AuthController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\AuthController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\NotificationController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\NotificationController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\RatingController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\RatingController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\controllers\\\\PublicController.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\controllers\\\\PublicController.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\helpers\\\\auth.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\helpers\\\\auth.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\helpers\\\\response.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\helpers\\\\response.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\helpers\\\\validator.php\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\helpers\\\\validator.php\")",
+      "Bash(cp \"C:\\\\Users\\\\Jp\\\\ITS122L-MedLink\\\\backend\\\\database\\\\schema.sql\" \"C:\\\\xampp\\\\htdocs\\\\backend\\\\database\\\\schema.sql\")"
+    ]
+  }
+}

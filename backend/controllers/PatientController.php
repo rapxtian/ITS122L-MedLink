@@ -19,13 +19,13 @@ class PatientController {
 
         // Upcoming appointments
         $stmt = $this->db->prepare(
-            'SELECT a.*, c.full_name AS child_name, u.full_name AS doctor_name, u.specialization
+            "SELECT a.*, c.full_name AS child_name, u.full_name AS doctor_name, u.specialization
              FROM appointments a
              JOIN children c ON a.child_id = c.id
              JOIN users u ON a.doctor_id = u.id
              WHERE a.parent_id = ? AND a.status = 'Upcoming' AND a.appointment_date >= CURRENT_DATE
              ORDER BY a.appointment_date ASC, a.appointment_time ASC
-             LIMIT 5'
+             LIMIT 5"
         );
         $stmt->execute([$user['user_id']]);
         $upcomingAppointments = $stmt->fetchAll();
@@ -44,24 +44,24 @@ class PatientController {
 
         // Active prescriptions
         $stmt = $this->db->prepare(
-            'SELECT rx.*, c.full_name AS child_name, u.full_name AS issued_by_name
+            "SELECT rx.*, c.full_name AS child_name, u.full_name AS issued_by_name
              FROM prescriptions rx
              JOIN children c ON rx.child_id = c.id
              JOIN users u ON rx.issued_by = u.id
              WHERE c.parent_id = ? AND rx.status = 'Active'
-             ORDER BY rx.issued_date DESC'
+             ORDER BY rx.issued_date DESC"
         );
         $stmt->execute([$user['user_id']]);
         $activePrescriptions = $stmt->fetchAll();
 
         // Appointment stats
         $stmt = $this->db->prepare(
-            'SELECT
+            "SELECT
                 COUNT(*) AS total,
                 SUM(CASE WHEN status = 'Upcoming' THEN 1 ELSE 0 END) AS upcoming,
                 SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed,
                 SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled
-             FROM appointments WHERE parent_id = ?'
+             FROM appointments WHERE parent_id = ?"
         );
         $stmt->execute([$user['user_id']]);
         $stats = $stmt->fetch();
@@ -104,7 +104,7 @@ class PatientController {
         $v->validate();
 
         $stmt = $this->db->prepare(
-            'INSERT INTO children (parent_id, full_name, date_of_birth, gender, known_allergies, medical_history) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO children (parent_id, full_name, date_of_birth, gender, known_allergies, medical_history) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
         );
         $stmt->execute([
             $user['user_id'],
@@ -115,7 +115,7 @@ class PatientController {
             trim($data['medical_history'] ?? '')
         ]);
 
-        Response::success(['id' => (int)$this->db->lastInsertId()], 'Child added successfully', 201);
+        Response::success(['id' => (int)$stmt->fetchColumn()], 'Child added successfully', 201);
     }
 
     // ===== MEDICAL RECORDS =====
@@ -224,7 +224,7 @@ class PatientController {
             Response::error('Lab result not found', 404);
         }
 
-        $filePath = __DIR__ . '/uploads/' . $result['file_path'];
+        $filePath = __DIR__ . '/../uploads/' . $result['file_path'];
         if (!file_exists($filePath)) {
             Response::error('File not found', 404);
         }
@@ -336,6 +336,49 @@ class PatientController {
         Response::success(null, 'Profile updated successfully');
     }
 
+    public function uploadProfilePhoto(): void {
+        $user = Auth::requireRole('patient');
+
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('Profile photo file is required');
+        }
+
+        $file = $_FILES['file'];
+        $maxSize = 5 * 1024 * 1024; // 5MB
+        if ($file['size'] > $maxSize) {
+            Response::error('Profile photo must not exceed 5MB');
+        }
+
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            Response::error('Only JPG and PNG profile photos are allowed');
+        }
+
+        $uploadDir = __DIR__ . '/../uploads/profile_photos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $safeExt = $ext === 'jpeg' ? 'jpg' : $ext;
+        $fileName = 'profile_' . $user['user_id'] . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $safeExt;
+        $filePath = $uploadDir . $fileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $filePath)) {
+            Response::error('Failed to save profile photo', 500);
+        }
+
+        $relativePath = 'profile_photos/' . $fileName;
+        $stmt = $this->db->prepare('UPDATE users SET profile_photo = ? WHERE id = ?');
+        $stmt->execute([$relativePath, $user['user_id']]);
+
+        Response::success(['profile_photo' => $relativePath], 'Profile photo uploaded successfully');
+    }
+
     public function updateChild(): void {
         $user = Auth::requireRole('patient');
         $data = getInput();
@@ -401,7 +444,7 @@ class PatientController {
         $v->validate();
 
         $stmt = $this->db->prepare(
-            'INSERT INTO emergency_contacts (parent_id, contact_name, relationship, contact_number) VALUES (?, ?, ?, ?)'
+            'INSERT INTO emergency_contacts (parent_id, contact_name, relationship, contact_number) VALUES (?, ?, ?, ?) RETURNING id'
         );
         $stmt->execute([
             $user['user_id'],
@@ -410,7 +453,7 @@ class PatientController {
             trim($data['contact_number'])
         ]);
 
-        Response::success(['id' => (int)$this->db->lastInsertId()], 'Emergency contact added', 201);
+        Response::success(['id' => (int)$stmt->fetchColumn()], 'Emergency contact added', 201);
     }
 
     public function updateEmergencyContact(int $id): void {

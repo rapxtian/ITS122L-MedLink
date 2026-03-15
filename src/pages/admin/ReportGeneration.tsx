@@ -34,15 +34,15 @@ export function ReportGeneration({ navigate }: Props) {
     Promise.all([
       api.admin.getAppointmentReports().then((res) => {
         const d = res.data || {};
-        setAppointmentData(d.monthly || d.chart || []);
+        setAppointmentData((d.monthly || []).map((m: any) => ({ month: m.month_label?.trim?.() || m.month, count: Number(m.total || 0) })));
         setApptStats(d.stats || d);
       }).catch(() => {}),
       api.admin.getDoctorReports().then((res) => {
-        setDoctorData(res.data?.doctors || res.data || []);
+        setDoctorData((res.data || []).map((row: any) => ({ name: row.full_name, visits: Number(row.total_appointments || 0) })));
       }).catch(() => {}),
       api.admin.getInventoryReports().then((res) => {
         const d = res.data || {};
-        setInventoryData(d.categories || d.chart || []);
+        setInventoryData((d.by_category || []).map((row: any) => ({ name: row.category, value: Number(row.total_quantity || 0) })));
         setLowStockItems(d.low_stock || []);
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
@@ -159,7 +159,7 @@ export function ReportGeneration({ navigate }: Props) {
                   return (
                     <div key={i} className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{item.name}</div>
+                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{item.item_name || item.name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">Reorder at: {reorder}</div>
                       </div>
                       <div className="text-right">

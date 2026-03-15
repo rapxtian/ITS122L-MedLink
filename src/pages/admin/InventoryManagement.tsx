@@ -34,9 +34,27 @@ export function InventoryManagement({ navigate }: Props) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteItem, setDeleteItem] = useState<any | null>(null);
+  const [editItem, setEditItem] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', category: '', supplier: '', quantity: '', reorder_level: '' });
+  const [formError, setFormError] = useState('');
+  const [form, setForm] = useState({ item_name: '', category: '', supplier: '', quantity: '', reorder_level: '' });
+
+  const resetForm = () => {
+    setEditItem(null);
+    setFormError('');
+    setForm({ item_name: '', category: '', supplier: '', quantity: '', reorder_level: '' });
+  };
+
+  const closeModal = () => {
+    setShowAdd(false);
+    resetForm();
+  };
+
+  const openAdd = () => {
+    resetForm();
+    setShowAdd(true);
+  };
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -49,20 +67,53 @@ export function InventoryManagement({ navigate }: Props) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAdd = async () => {
-    if (!form.name) return;
+    if (!form.item_name || !form.category || !form.supplier) return;
     setSaving(true);
+    setFormError('');
     try {
       await api.admin.addInventoryItem({
-        name: form.name,
+        item_name: form.item_name,
         category: form.category,
         supplier: form.supplier,
         quantity: parseInt(form.quantity) || 0,
         reorder_level: parseInt(form.reorder_level) || 0,
       });
-      setShowAdd(false);
-      setForm({ name: '', category: '', supplier: '', quantity: '', reorder_level: '' });
+      closeModal();
       fetchData();
-    } catch {} finally { setSaving(false); }
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to add item.');
+    } finally { setSaving(false); }
+  };
+
+  const openEdit = (item: any) => {
+    setEditItem(item);
+    setForm({
+      item_name: item.item_name || item.name || '',
+      category: item.category || '',
+      supplier: item.supplier || '',
+      quantity: String(item.quantity ?? item.qty ?? 0),
+      reorder_level: String(item.reorder_level ?? item.reorder ?? 0),
+    });
+    setShowAdd(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editItem) return;
+    setSaving(true);
+    setFormError('');
+    try {
+      await api.admin.updateInventoryItem(editItem.id || editItem.item_id, {
+        item_name: form.item_name,
+        category: form.category,
+        supplier: form.supplier,
+        quantity: parseInt(form.quantity) || 0,
+        reorder_level: parseInt(form.reorder_level) || 0,
+      });
+      closeModal();
+      fetchData();
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to update item.');
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -94,7 +145,7 @@ export function InventoryManagement({ navigate }: Props) {
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Inventory Management</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Track and manage clinic supplies</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
+        <button onClick={openAdd}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
           <Plus size={15} /> Add Item
         </button>
@@ -131,7 +182,7 @@ export function InventoryManagement({ navigate }: Props) {
                         {status.toLowerCase() !== 'in stock' &&
                           <AlertTriangle size={13} className={status.toLowerCase() === 'out of stock' ? 'text-red-500' : 'text-orange-500'} />
                         }
-                        <span className="font-medium text-slate-800 dark:text-slate-100">{item.name}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">{item.item_name || item.name}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{item.category || '-'}</td>
@@ -148,6 +199,9 @@ export function InventoryManagement({ navigate }: Props) {
                     <td className="px-5 py-3.5">
                       <button onClick={() => setDeleteItem(item)} className="flex items-center gap-1 text-xs text-red-500 hover:underline">
                         <Trash2 size={13} /> Delete
+                      </button>
+                      <button onClick={() => openEdit(item)} className="flex items-center gap-1 text-xs text-blue-600 hover:underline ml-3">
+                        <Plus size={13} /> Edit
                       </button>
                     </td>
                   </tr>
@@ -175,14 +229,14 @@ export function InventoryManagement({ navigate }: Props) {
                 <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">No transactions</td></tr>
               ) : transactions.map((t: any, i: number) =>
                 <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900/50">
-                  <td className="px-4 py-3 text-slate-800 dark:text-slate-100">{t.item || t.item_name || t.name}</td>
+                  <td className="px-4 py-3 text-slate-800 dark:text-slate-100">{t.item_name || t.item || t.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${(t.type || '').toLowerCase() === 'added' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 dark:text-blue-300'}`}>
-                      {t.type}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${((t.transaction_type || t.type || '').toLowerCase() === 'added' || (t.transaction_type || t.type || '').toLowerCase() === 'in') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 dark:text-blue-300'}`}>
+                      {t.transaction_type || t.type || '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{t.qty || t.quantity}</td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{t.date || t.created_at}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{t.quantity ?? t.qty ?? 0}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{t.transaction_date || t.date || t.created_at || '-'}</td>
                 </tr>
               )}
             </tbody>
@@ -191,11 +245,13 @@ export function InventoryManagement({ navigate }: Props) {
       </div>
 
       {/* Add Modal */}
-      <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Inventory Item" size="md">
+      <Modal isOpen={showAdd} onClose={closeModal} title={editItem ? 'Edit Inventory Item' : 'Add Inventory Item'} size="md">
         <div className="space-y-4">
+          {formError && (
+            <div className="bg-red-50 text-red-700 text-sm px-3 py-2.5 rounded-lg">{formError}</div>
+          )}
           {[
-            { label: 'Item Name', key: 'name', placeholder: 'e.g., Amoxicillin 250mg' },
-            { label: 'Category', key: 'category', placeholder: 'e.g., Antibiotic' },
+            { label: 'Item Name', key: 'item_name', placeholder: 'e.g., Amoxicillin 250mg' },
             { label: 'Supplier', key: 'supplier', placeholder: 'e.g., PharmaCorp' },
           ].map((f) =>
             <div key={f.key}>
@@ -206,6 +262,19 @@ export function InventoryManagement({ navigate }: Props) {
                 className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
           )}
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800"
+            >
+              <option value="">-- Select category --</option>
+              {['Antibiotic', 'Analgesic', 'Supplement', 'Electrolyte', 'Immunological', 'Equipment'].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Quantity</label>
@@ -221,12 +290,12 @@ export function InventoryManagement({ navigate }: Props) {
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setShowAdd(false)} className="flex-1 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900/40">
+            <button onClick={closeModal} className="flex-1 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900/40">
               Cancel
             </button>
-            <button onClick={handleAdd} disabled={saving || !form.name}
+            <button onClick={editItem ? handleUpdate : handleAdd} disabled={saving || !form.item_name || !form.category || !form.supplier}
               className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-              {saving ? 'Adding...' : 'Add Item'}
+              {saving ? (editItem ? 'Updating...' : 'Adding...') : (editItem ? 'Update Item' : 'Add Item')}
             </button>
           </div>
         </div>
@@ -237,7 +306,7 @@ export function InventoryManagement({ navigate }: Props) {
           <div className="flex items-start gap-3 bg-red-50 rounded-xl p-3">
             <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-red-700">
-              Delete <strong>{deleteItem?.name}</strong>? This cannot be undone.
+              Delete <strong>{deleteItem?.item_name || deleteItem?.name}</strong>? This cannot be undone.
             </p>
           </div>
           <div className="flex gap-3">
