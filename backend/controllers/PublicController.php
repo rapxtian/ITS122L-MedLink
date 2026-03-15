@@ -10,10 +10,10 @@ class PublicController {
 
     public function getDoctors(): void {
         $stmt = $this->db->query(
-            'SELECT id, full_name, specialization
+            "SELECT id, full_name, specialization, profile_photo
              FROM users
              WHERE role = 'doctor' AND is_active = true
-             ORDER BY full_name ASC'
+             ORDER BY full_name ASC"
         );
 
         Response::success($stmt->fetchAll());

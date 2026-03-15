@@ -262,10 +262,10 @@ ON CONFLICT (email) DO NOTHING;
 -- =============================================
 INSERT INTO users (email, password, role, full_name, contact_number, specialization)
 VALUES
-('ana.reyes@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Ana Reyes', '0917-123-4567', 'Pediatrician'),
-('carlos.lim@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Carlos Lim', '0917-234-5678', 'Neonatologist'),
-('sofia.cruz@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Sofia Cruz', '0917-345-6789', 'Pediatric Cardiologist'),
-('marco.santos@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Marco Santos', '0917-456-7890', 'General Pediatrician')
+('celerina.gonzalesreganion@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Celerina Gonzales-Reganion, MD, FPPS', '0917-500-1001', 'General Pediatrics'),
+('juan.reganion@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Juan G. Reganion, MD', '0917-500-1002', 'Pediatric Cardiologist'),
+('jeanie.uy@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Jeanie Karen K. Uy, MD, DPPS, DPIDSP', '0917-500-1003', 'General Pediatrics / Pediatric Infectious Disease'),
+('patricia.deleon@medlink.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'doctor', 'Dr. Patricia G. De Leon, MD', '0917-500-1004', 'Pediatric Cardiologist')
 ON CONFLICT (email) DO NOTHING;
 
 -- =============================================

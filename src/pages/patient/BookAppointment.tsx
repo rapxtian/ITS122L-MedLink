@@ -20,7 +20,9 @@ export function BookAppointment({ navigate }: Props) {
 
   useEffect(() => {
     api.patient.getChildren().then((res) => setChildren(res.data || [])).catch(() => {});
-    api.public.getDoctors().then((res) => setDoctors(res.data || [])).catch(() => {});
+    api.public.getDoctors().then((res) => setDoctors(res.data || [])).catch(() => {
+      setError('Unable to load doctor list. Please try again shortly.');
+    });
   }, []);
 
   useEffect(() => {
