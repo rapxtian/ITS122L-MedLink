@@ -4,7 +4,6 @@ import {
   ArrowRight,
   CheckCircle,
   User,
-  Baby,
   Phone } from 'lucide-react';
 import logoImg from '../assets/logoo.png';
 import { useAuth } from '../context/AuthContext';
@@ -28,27 +27,48 @@ export function RegisterPage({ navigate }: Props) {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
 
-  // Step 2: Child
-  const [childName, setChildName] = useState('');
-  const [childDob, setChildDob] = useState('');
-  const [childGender, setChildGender] = useState('');
-  const [allergies, setAllergies] = useState('');
-  const [medicalHistory, setMedicalHistory] = useState('');
-
-  // Step 3: Emergency
+  // Step 2: Emergency
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyRelation, setEmergencyRelation] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
 
   const steps = [
     { num: 1, label: 'Parent Info', icon: User },
-    { num: 2, label: 'Child Patient', icon: Baby },
-    { num: 3, label: 'Emergency Contact', icon: Phone },
+    { num: 2, label: 'Emergency Contact', icon: Phone },
   ];
 
+  const validateStep = (targetStep: number): string | null => {
+    if (targetStep === 1) {
+      if (!fullName || !email || !password || !confirmPassword || !phone || !address) {
+        return 'Please complete all required Parent / Guardian fields before proceeding.';
+      }
+      if (password !== confirmPassword) {
+        return 'Passwords do not match.';
+      }
+    }
+
+    if (targetStep === 2) {
+      if (!emergencyName || !emergencyRelation || !emergencyPhone) {
+        return 'Please complete all required Emergency Contact fields before submitting.';
+      }
+    }
+
+    return null;
+  };
+
+  const handleNextStep = () => {
+    const stepError = validateStep(step);
+    if (stepError) {
+      setError(stepError);
+      return;
+    }
+    setError('');
+    setStep(step + 1);
+  };
+
   const handleRegister = async () => {
-    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
-    if (!fullName || !email || !password) { setError('Please fill in all required fields.'); return; }
+    const allErrors = validateStep(1) || validateStep(2);
+    if (allErrors) { setError(allErrors); return; }
     setLoading(true);
     setError('');
     try {
@@ -59,11 +79,6 @@ export function RegisterPage({ navigate }: Props) {
         confirm_password: confirmPassword,
         contact_number: phone,
         address,
-        child_name: childName,
-        child_dob: childDob,
-        child_gender: childGender,
-        child_allergies: allergies,
-        child_medical_history: medicalHistory,
         emergency_contact_name: emergencyName,
         emergency_contact_relationship: emergencyRelation,
         emergency_contact_number: emergencyPhone,
@@ -166,49 +181,6 @@ export function RegisterPage({ navigate }: Props) {
           {/* Step 2 */}
           {step === 2 && (
             <div className="space-y-4 fade-in">
-              <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">Child Patient Information</h3>
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Child's Full Name</label>
-                <input type="text" placeholder="Juan Santos" value={childName}
-                  onChange={(e) => setChildName(e.target.value)}
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Date of Birth</label>
-                  <input type="date" title="Child date of birth" value={childDob} onChange={(e) => setChildDob(e.target.value)}
-                    className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Gender</label>
-                  <div className="flex gap-3 mt-2">
-                    {['Male', 'Female'].map((g) =>
-                      <label key={g} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
-                        <input type="radio" name="gender" value={g} checked={childGender === g}
-                          onChange={() => setChildGender(g)} className="accent-blue-600" /> {g}
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Known Allergies</label>
-                <textarea rows={2} placeholder="e.g., Penicillin, Peanuts (leave blank if none)" value={allergies}
-                  onChange={(e) => setAllergies(e.target.value)}
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Medical History</label>
-                <textarea rows={3} placeholder="Previous conditions, surgeries, or ongoing treatments..." value={medicalHistory}
-                  onChange={(e) => setMedicalHistory(e.target.value)}
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none" />
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 */}
-          {step === 3 && (
-            <div className="space-y-4 fade-in">
               <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">Emergency Contact</h3>
               {[
                 { label: 'Contact Person Name', value: emergencyName, set: setEmergencyName, placeholder: 'Jose Santos' },
@@ -234,8 +206,8 @@ export function RegisterPage({ navigate }: Props) {
               className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900/40 text-sm font-medium transition-colors">
               <ArrowLeft size={14} /> {step === 1 ? 'Back to Login' : 'Previous'}
             </button>
-            {step < 3 ? (
-              <button onClick={() => setStep(step + 1)}
+            {step < 2 ? (
+              <button onClick={handleNextStep}
                 className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors">
                 Next <ArrowRight size={14} />
               </button>

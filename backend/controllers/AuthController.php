@@ -26,13 +26,6 @@ class AuthController {
           ->required('contact_number', $data['contact_number'] ?? null, 'Contact Number')
           ->required('address', $data['address'] ?? null, 'Address');
 
-        // Validate child info
-        $v->required('child_name', $data['child_name'] ?? null, 'Child Name')
-          ->required('child_dob', $data['child_dob'] ?? null, 'Date of Birth')
-          ->date('child_dob', $data['child_dob'] ?? null, 'Date of Birth')
-          ->required('child_gender', $data['child_gender'] ?? null, 'Gender')
-          ->inList('child_gender', $data['child_gender'] ?? null, ['Male', 'Female'], 'Gender');
-
         // Validate emergency contact
         $v->required('emergency_contact_name', $data['emergency_contact_name'] ?? null, 'Emergency Contact Name')
           ->required('emergency_contact_relationship', $data['emergency_contact_relationship'] ?? null, 'Relationship')
@@ -62,19 +55,6 @@ class AuthController {
                 trim($data['address'])
             ]);
             $parentId = (int)$this->db->lastInsertId();
-
-            // Create child record
-            $stmt = $this->db->prepare(
-                'INSERT INTO children (parent_id, full_name, date_of_birth, gender, known_allergies, medical_history) VALUES (?, ?, ?, ?, ?, ?)'
-            );
-            $stmt->execute([
-                $parentId,
-                trim($data['child_name']),
-                $data['child_dob'],
-                $data['child_gender'],
-                trim($data['child_allergies'] ?? ''),
-                trim($data['child_medical_history'] ?? '')
-            ]);
 
             // Create emergency contact
             $stmt = $this->db->prepare(
@@ -107,7 +87,7 @@ class AuthController {
             $stmt->execute([
                 $parentId,
                 'Welcome to MedLink!',
-                'Your account has been created successfully. You can now book appointments for your child.',
+                'Your account has been created successfully. Add your child profile from your dashboard to start booking appointments.',
                 'info'
             ]);
 
